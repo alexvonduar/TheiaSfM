@@ -1,4 +1,4 @@
-// Copyright (C) 2017 The Regents of the University of California (Regents).
+// Copyright (C) 2018 The Regents of the University of California (Regents).
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,51 +30,49 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 // Please contact the author of this library if you have any questions.
-// Author: Chris Sweeney (sweeney.chris.m@gmail.com)
+// Authors: Victor Fragoso (victor.fragoso@mail.wvu.edu)
+//        : Benjamin Smith (bbsmith1@mix.wvu.edu)
 
-#include "theia/solvers/exhaustive_sampler.h"
+#ifndef THEIA_MATCHING_GLOBAL_DESCRIPTOR_EXTRACTOR_H_
+#define THEIA_MATCHING_GLOBAL_DESCRIPTOR_EXTRACTOR_H_
 
-#include <algorithm>
-#include <glog/logging.h>
 #include <vector>
-
-#include "theia/solvers/sampler.h"
+#include <glog/logging.h>
+#include <Eigen/Core>
 
 namespace theia {
+// This class computes a global descriptor for a given image.
+//
+// The use of an extractor should follow the next procedure:
+//
+// 1. After creation, initialize the instance by calling Initialize().
+// 2. Train the extractor by calling Train().
+// 3. Compute the global descriptor by calling Extract().
+class GlobalDescriptorExtractor {
+ public:
+  GlobalDescriptorExtractor() {}
+  virtual ~GlobalDescriptorExtractor() {}
 
-ExhaustiveSampler::ExhaustiveSampler(
-    const std::shared_ptr<RandomNumberGenerator>& rng,
-    const int min_num_samples)
-    : Sampler(rng, min_num_samples), i_(0), j_(1) {
-  CHECK_EQ(this->min_num_samples_, 2) << "ExhaustiveSampler makes a hard "
-                                         "assumption that the number of "
-                                         "samples needed is 2.";
-}
+  // Initializes the global descriptor extractor.
+  virtual bool Initialize() = 0;
 
-bool ExhaustiveSampler::Initialize(const int num_datapoints) {
-  CHECK_GE(num_datapoints, this->min_num_samples_);
-  num_datapoints_ = num_datapoints;
-  return true;
-}
+  // Trains the instance. Returns true upon success and false otherwise.
+  // Params:
+  //   training_descriptors  The training local descriptors by using specific
+  //     a TrainingDescriptorType (e.g., vector of Eigens (matrix)).
+  virtual bool Train(
+      const std::vector<Eigen::VectorXf>& training_descriptors) = 0;
 
-// The next sample is determined deterministically.
-bool ExhaustiveSampler::Sample(std::vector<int>* subset) {
-  subset->emplace_back(i_);
-  subset->emplace_back(j_);
+  // Computes the global descriptor from information about the image to
+  // describe. The method returns true upon success and false otherwise.
+  // Params:
+  //   input_information  The input image information.
+  //   global_descriptor  The computed global descriptor.
+  virtual bool Extract(const std::vector<Eigen::VectorXf> input_information,
+                       Eigen::VectorXf* global_descriptor) const = 0;
 
-  // Increment j and adjust the implicit for loops accordingly.
-  ++j_;
-  if (j_ >= num_datapoints_) {
-    ++i_;
-    // If i >= num_datapoints then we have enumerated all possible combinations.
-    // We simply reset the outer loop (i) to 0 so that the combinations are
-    // rengenerated.
-    if (i_ >= num_datapoints_ - 1) {
-      i_ = 0;
-    }
-    j_ = i_ + 1;
-  }
-  return true;
-}
+};
 
 }  // namespace theia
+
+#endif  // THEIA_MATCHING_GLOBAL_DESCRIPTOR_EXTRACTOR_H_

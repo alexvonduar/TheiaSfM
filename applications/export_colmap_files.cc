@@ -1,4 +1,4 @@
-// Copyright (C) 2017 The Regents of the University of California (Regents).
+// Copyright (C) 2014 The Regents of the University of California (Regents).
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,51 +30,32 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 // Please contact the author of this library if you have any questions.
-// Author: Chris Sweeney (sweeney.chris.m@gmail.com)
+// Author: Aleksander Holynski (holynski@cs.washington.edu)
 
-#include "theia/solvers/exhaustive_sampler.h"
+#include <Eigen/Core>
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <theia/io/write_colmap_files.h>
+#include <theia/theia.h>
 
 #include <algorithm>
-#include <glog/logging.h>
-#include <vector>
+#include <string>
 
-#include "theia/solvers/sampler.h"
+DEFINE_string(output_folder, "", "Folder to output the colmap files.");
+DEFINE_string(input_reconstruction_file,
+              "",
+              "Input Theia reconstruction (.bin).");
+int main(int argc, char* argv[]) {
+  google::InitGoogleLogging(argv[0]);
+  THEIA_GFLAGS_NAMESPACE::ParseCommandLineFlags(&argc, &argv, true);
 
-namespace theia {
+  // Load the reconstuction.
+  theia::Reconstruction reconstruction;
+  CHECK(theia::ReadReconstruction(FLAGS_input_reconstruction_file,
+                                  &reconstruction))
+      << "Could not read reconstruction.";
 
-ExhaustiveSampler::ExhaustiveSampler(
-    const std::shared_ptr<RandomNumberGenerator>& rng,
-    const int min_num_samples)
-    : Sampler(rng, min_num_samples), i_(0), j_(1) {
-  CHECK_EQ(this->min_num_samples_, 2) << "ExhaustiveSampler makes a hard "
-                                         "assumption that the number of "
-                                         "samples needed is 2.";
+  CHECK(WriteColmapFiles(reconstruction, FLAGS_output_folder))
+      << "Could not write out reconstruction file.";
+  return 0;
 }
-
-bool ExhaustiveSampler::Initialize(const int num_datapoints) {
-  CHECK_GE(num_datapoints, this->min_num_samples_);
-  num_datapoints_ = num_datapoints;
-  return true;
-}
-
-// The next sample is determined deterministically.
-bool ExhaustiveSampler::Sample(std::vector<int>* subset) {
-  subset->emplace_back(i_);
-  subset->emplace_back(j_);
-
-  // Increment j and adjust the implicit for loops accordingly.
-  ++j_;
-  if (j_ >= num_datapoints_) {
-    ++i_;
-    // If i >= num_datapoints then we have enumerated all possible combinations.
-    // We simply reset the outer loop (i) to 0 so that the combinations are
-    // rengenerated.
-    if (i_ >= num_datapoints_ - 1) {
-      i_ = 0;
-    }
-    j_ = i_ + 1;
-  }
-  return true;
-}
-
-}  // namespace theia
